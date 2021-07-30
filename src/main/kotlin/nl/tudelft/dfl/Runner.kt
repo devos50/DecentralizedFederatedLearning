@@ -219,4 +219,37 @@ class Runner {
         logger.warn { "Test finished" }
     }
 
+    fun simulate(
+        baseDirectory: File,
+        automationPart: Int,
+    ) {
+        val evaluationProcessor = EvaluationProcessor(
+            baseDirectory,
+            "simulated",
+            listOf(
+                "before or after averaging",
+                "#peers included in current batch"
+            )
+        )
+        try {
+            val automation = loadAutomation(baseDirectory)
+            logger.debug { "Automation loaded" }
+            val (configs, figureNames) = generateConfigs(automation, automationPart)
+            logger.debug { "Configs generated" }
+
+            for (figure in configs.indices) {
+                val figureName = figureNames[figure]
+                val figureConfig = configs[figure]
+                for (test in figureConfig.indices) {
+                    val testConfig = figureConfig[test]
+                    performTest(baseDirectory, figureName, testConfig, evaluationProcessor)
+                }
+            }
+            evaluationProcessor.done()
+            logger.error { "All tests finished" }
+        } catch (e: Exception) {
+            evaluationProcessor.error(e)
+            e.printStackTrace()
+        }
+    }
 }
