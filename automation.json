@@ -1,7 +1,7 @@
 {
     "fixedValues": {
         "batchSize": "batch_5",
-        "iteratorDistribution": "[100, 100, 100, 100, 100, 100, 100, 100, 100, 100]",
+        "iteratorDistribution": "[500, 500, 500, 500, 500, 500, 500, 500, 500, 500]",
         "maxTestSample": "num_10",
         "maxIterations": "iter_300",
         "optimizer": "adam",

@@ -115,7 +115,7 @@ class Node(
 
         labels = iterTrain.labels
 
-        logging = nodeIndex == 0 || !ONLY_EVALUATE_FIRST_NODE
+        logging = false
     }
 
     private fun loadFromTransferNetwork(transferFile: File, generateArchitecture: (nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerConfiguration): MultiLayerNetwork {
@@ -150,7 +150,6 @@ class Node(
             if (iteration < 4) {
                 logger.debug { "Measured time for ${gar.text} iteration: ${System.currentTimeMillis() - start}" }
             }
-//            potentiallyEvaluate(epoch, iteration, "before")
         }
         newOtherModelBuffer.clear()
 
@@ -174,7 +173,7 @@ class Node(
             )
         }
 
-        potentiallyEvaluate(epoch, iteration, "after")
+        potentiallyEvaluate(epoch, iteration)
         return epochEnd
     }
 
@@ -245,12 +244,12 @@ class Node(
         }
     }
 
-    private fun potentiallyEvaluate(epoch: Int, iteration: Int, beforeOrAfter: String) {
-        if (logging && (iteration < 20 || iteration % iterationsBeforeEvaluation == 0)) {
+    private fun potentiallyEvaluate(epoch: Int, iteration: Int) {
+        if (iteration < 20 || iteration % iterationsBeforeEvaluation == 0) {
             val evaluationScript = {
                 val elapsedTime2 = System.currentTimeMillis() - start
                 val extraElements2 = mapOf(
-                    Pair("before or after averaging", beforeOrAfter),
+                    Pair("before or after averaging", "after"),
                     Pair("#peers included in current batch", newOtherModelBuffer.size.toString())
                 )
                 evaluationProcessor.evaluate(
