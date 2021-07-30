@@ -17,7 +17,7 @@ import kotlin.math.round
 import kotlin.random.Random
 
 private val logger = KotlinLogging.logger("Node")
-private const val ONLY_EVALUATE_FIRST_NODE = true
+private const val ONLY_EVALUATE_FIRST_NODE = false
 private const val SIZE_RECENT_OTHER_MODELS = 20
 
 class Node(
@@ -176,21 +176,6 @@ class Node(
 
         potentiallyEvaluate(epoch, iteration, "after")
         return epochEnd
-    }
-
-    private fun updateCW() {
-        val tw = network.outputLayer.paramTable().getValue("W")
-        for (index in usedClassIndices) {
-            cw.putColumn(index, tw.getColumn(index.toLong()).dup())
-        }
-    }
-
-    private fun resetTW() {
-        val tw = network.outputLayer.paramTable()
-        for (index in 0 until cw.columns()) {
-            tw.getValue("W").putColumn(index, cw.getColumn(index.toLong()).dup())
-        }
-        network.outputLayer.setParamTable(tw)
     }
 
     private fun joiningLateSkip(): Boolean {

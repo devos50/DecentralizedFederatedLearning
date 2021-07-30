@@ -107,10 +107,7 @@ class Runner {
     ) {
         val message = craftMessage(params, trainConfiguration.behavior, random)
         when (trainConfiguration.communicationPattern) {
-            CommunicationPatterns.ALL -> /*nodes
-                .filter { it.getNodeIndex() != nodeIndex && (if (trainConfiguration.gar == GARs.BRISTLE && USE_PSI_CA) it.getNodeIndex() in countPerPeer.keys else true) }
-                .forEach { it.addNetworkMessage(nodeIndex, message) }*/
-                nodeSendsTo[nodeIndex]!!.forEach { it.addNetworkMessage(nodeIndex, message) }
+            CommunicationPatterns.ALL -> nodeSendsTo[nodeIndex]!!.forEach { it.addNetworkMessage(nodeIndex, message) }
             CommunicationPatterns.RANDOM -> nodes
                 .filter { it.getNodeIndex() != nodeIndex }
                 .random().addNetworkMessage(nodeIndex, message)
@@ -169,7 +166,7 @@ class Runner {
         logger.error { "Going to test: $fullFigureName" }
 
         // Initialize everything
-        evaluationProcessor.newSimulation(fullFigureName, testConfig, transfer)
+        evaluationProcessor.newSimulation(figureName, testConfig, transfer)
         val start = System.currentTimeMillis()
         nodes = testConfig.mapIndexed { i, config ->
             Node(

@@ -52,7 +52,8 @@ class EvaluationProcessor(
     private val configurationLines = arrayListOf(configurationHeader)
 
     private val evaluationHeader = arrayOf(
-        "environment",
+        "name",
+        "gar",
         "simulationIndex",
         "elapsedTime",
         "epoch",
@@ -74,6 +75,7 @@ class EvaluationProcessor(
     private val fileResults = File(fileDirectory, "evaluation-$runner-${DATE_FORMAT.format(Date())}.csv")
     private var fileMeta = File(fileDirectory, "evaluation-$runner-${DATE_FORMAT.format(Date())}.meta.csv")
     private lateinit var currentName: String
+    private lateinit var garName: String
     private val startTime: Long
 
     init {
@@ -115,6 +117,7 @@ class EvaluationProcessor(
         transfer: Boolean
     ) {
         this.currentName = name
+        this.garName = mlConfiguration[0].trainConfiguration.gar.id
         mlConfiguration.forEachIndexed { index, configuration ->
             val line = parseConfiguration(name, index, configuration, transfer)
             configurationLines.add(line)
@@ -173,6 +176,7 @@ class EvaluationProcessor(
         val mcc = evaluations[0].getValue(Evaluation.Metric.MCC)
         val dataLineElements = arrayOf(
             this.currentName,
+            this.garName,
             simulationIndex.toString(),
             elapsedTime.toString(),
             epoch.toString(),
