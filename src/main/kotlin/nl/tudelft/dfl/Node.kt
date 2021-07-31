@@ -3,7 +3,6 @@ package nl.tudelft.dfl
 import mu.KotlinLogging
 import nl.tudelft.dfl.dataset.CustomDatasetIterator
 import nl.tudelft.dfl.dataset.CustomDatasetType
-import nl.tudelft.dfl.demo.nl.tudelft.dfl.EvaluationProcessor
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener

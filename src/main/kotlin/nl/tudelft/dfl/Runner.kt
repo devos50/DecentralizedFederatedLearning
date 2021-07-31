@@ -1,4 +1,4 @@
-package nl.tudelft.dfl.demo.nl.tudelft.dfl
+package nl.tudelft.dfl
 
 import mu.KotlinLogging
 import nl.tudelft.dfl.*

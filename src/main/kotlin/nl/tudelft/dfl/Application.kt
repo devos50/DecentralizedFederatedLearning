@@ -1,6 +1,5 @@
 package nl.tudelft.dfl
 
-import nl.tudelft.dfl.demo.nl.tudelft.dfl.Runner
 import java.io.File
 
 fun main() {
