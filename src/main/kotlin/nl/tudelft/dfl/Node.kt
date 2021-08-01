@@ -1,8 +1,11 @@
 package nl.tudelft.dfl
 
 import mu.KotlinLogging
+import nl.tudelft.dfl.configuration.*
 import nl.tudelft.dfl.dataset.CustomDatasetIterator
 import nl.tudelft.dfl.dataset.CustomDatasetType
+import nl.tudelft.dfl.types.Behavior
+import nl.tudelft.dfl.types.CommunicationPattern
 import org.deeplearning4j.nn.conf.MultiLayerConfiguration
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener
@@ -12,51 +15,27 @@ import org.nd4j.linalg.cpu.nativecpu.NDArray
 import org.nd4j.linalg.string.NDArrayStrings
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.round
 import kotlin.random.Random
 
 private val logger = KotlinLogging.logger("Node")
-private const val ONLY_EVALUATE_FIRST_NODE = false
 private const val SIZE_RECENT_OTHER_MODELS = 20
+private const val TEST_SET_SIZE = 10
 
 class Node(
     private val nodeIndex: Int,
-    testConfig: MLConfiguration,
-    private val generateNetwork: (architecture: (nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerConfiguration, nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerNetwork,
-    getDataSetIterators: (inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behaviors, transfer: Boolean) -> CustomDatasetIterator, datasetIteratorConfiguration: DatasetIteratorConfiguration, seed: Long, baseDirectory: File, behavior: Behaviors) -> List<CustomDatasetIterator>,
+    runConfiguration: RunConfiguration,
     baseDirectory: File,
     private val evaluationProcessor: EvaluationProcessor,
     private val start: Long,
-    val shareModel: (params: INDArray, trainConfiguration: TrainConfiguration, random: Random, nodeIndex: Int, countPerPeer: Map<Int, Int>) -> Unit,
 ) {
-    val formatter = NDArrayStrings()
-    private val dataset = testConfig.dataset
+    private val configuration: RunConfiguration
+    var neighbours: List<Node> = listOf()
     private val recentOtherModelsBuffer = ArrayDeque<Pair<Int, INDArray>>()
-    private val newOtherModelBufferTemp = Array<MutableMap<Int, INDArray>>(testConfig.trainConfiguration.latency + 1) { ConcurrentHashMap() }
+    private val newOtherModelBufferTemp = Array<MutableMap<Int, INDArray>>(1) { ConcurrentHashMap() }
     private val newOtherModelBuffer = ConcurrentHashMap<Int, INDArray>()
     private val random = Random(nodeIndex)
 
-    var network: MultiLayerNetwork
-    private val labels: List<String>
-
-    private val datasetIteratorConfiguration: DatasetIteratorConfiguration
-    private val distribution: List<Int>
-    private val usedClassIndices: List<Int>
-
-    private val nnConfiguration: NNConfiguration
-
-    private val trainConfiguration: TrainConfiguration
-    public val behavior: Behaviors
-    private val iterationsBeforeEvaluation: Int
-    private val iterationsBeforeSending: Int
-    private var joiningLateRemainingIterations: Int
-    private val slowdown: Slowdowns
-    private val gar: GARs
-    private val fromTransfer: Boolean
-
-    private val modelPoisoningConfiguration: ModelPoisoningConfiguration
-    private val modelPoisoningAttack: ModelPoisoningAttacks
-    private val numAttackers: NumAttackers
+    var neuralNetwork: MultiLayerNetwork
 
     var oldParams: INDArray
     var newParams: INDArray
@@ -66,60 +45,49 @@ class Node(
     private val iterTestFull: CustomDatasetIterator
     private val logging: Boolean
 
-    private lateinit var cw: INDArray
     private lateinit var countPerPeer: Map<Int, Int>
-    private var slowdownRemainingIterations = 0
 
 
     init {
-        datasetIteratorConfiguration = testConfig.datasetIteratorConfiguration
-        distribution = datasetIteratorConfiguration.distribution
-        usedClassIndices = distribution.mapIndexed { ind, v -> if (v > 0) ind else null }.filterNotNull()
+        configuration = runConfiguration
 
-        nnConfiguration = testConfig.nnConfiguration
-
-        trainConfiguration = testConfig.trainConfiguration
-        behavior = trainConfiguration.behavior
-        iterationsBeforeEvaluation = trainConfiguration.iterationsBeforeEvaluation
-        iterationsBeforeSending = trainConfiguration.iterationsBeforeSending
-        joiningLateRemainingIterations = trainConfiguration.joiningLate.rounds * iterationsBeforeSending
-        slowdown = trainConfiguration.slowdown
-        gar = trainConfiguration.gar
-        fromTransfer = trainConfiguration.transfer
-
-        modelPoisoningConfiguration = testConfig.modelPoisoningConfiguration
-        modelPoisoningAttack = modelPoisoningConfiguration.attack
-        numAttackers = modelPoisoningConfiguration.numAttackers
-
-        network = if (fromTransfer) {
-            loadFromTransferNetwork(File(baseDirectory, "transfer-${dataset.id}"), dataset.architecture)
+        neuralNetwork = if (configuration.trainConfiguration.transfer) {
+            loadFromTransferNetwork(File(baseDirectory, "transfer-${configuration.dataset.id}"), configuration.dataset.architecture)
         } else {
-            generateNetwork(dataset.architecture, testConfig.nnConfiguration, nodeIndex, NNConfigurationMode.REGULAR)
+            generateNeuralNetwork(configuration.dataset.architecture, nodeIndex, NNConfigurationMode.REGULAR)
         }
-        network.outputLayer.params().muli(0)
+        neuralNetwork.outputLayer.params().muli(0)
 
-        oldParams = network.params().dup()
+        oldParams = neuralNetwork.params().dup()
         newParams = NDArray()
         gradient = NDArray()
         val iters = getDataSetIterators(
-            dataset.inst,
-            datasetIteratorConfiguration,
+            configuration.dataset.inst,
+            configuration.datasetIteratorConfiguration,
             nodeIndex.toLong() * 10,
             baseDirectory,
-            behavior
+            configuration.trainConfiguration.behavior
         )
         iterTrain = iters[0]
         iterTest = iters[1]
         iterTestFull = iters[2]
 
-        labels = iterTrain.labels
-
         logging = false
+    }
+
+    fun generateNeuralNetwork(
+        architecture: (nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerConfiguration,
+        seed: Int,
+        mode: NNConfigurationMode,
+    ): MultiLayerNetwork {
+        val network = MultiLayerNetwork(architecture(configuration.nnConfiguration, seed, mode))
+        network.init()
+        return network
     }
 
     private fun loadFromTransferNetwork(transferFile: File, generateArchitecture: (nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerConfiguration): MultiLayerNetwork {
         val transferNetwork = ModelSerializer.restoreMultiLayerNetwork(transferFile)
-        val frozenNetwork = generateNetwork(generateArchitecture, nnConfiguration, nodeIndex, NNConfigurationMode.FROZEN)
+        val frozenNetwork = generateNeuralNetwork(generateArchitecture, nodeIndex, NNConfigurationMode.FROZEN)
         for ((k, v) in transferNetwork.paramTable()) {
             if (k.split("_")[0].toInt() < transferNetwork.layers.size - 1) {
                 frozenNetwork.setParam(k, v.dup())
@@ -128,76 +96,113 @@ class Node(
         return frozenNetwork
     }
 
+    protected fun getDataSetIterators(
+        inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behavior, transfer: Boolean) -> CustomDatasetIterator,
+        datasetIteratorConfiguration: DatasetIteratorConfiguration,
+        seed: Long,
+        baseDirectory: File,
+        behavior: Behavior,
+    ): List<CustomDatasetIterator> {
+        val trainDataSetIterator = inst(
+            DatasetIteratorConfiguration(
+                datasetIteratorConfiguration.batchSize,
+                datasetIteratorConfiguration.distribution,
+                datasetIteratorConfiguration.maxTestSamples
+            ),
+            seed,
+            CustomDatasetType.TRAIN,
+            baseDirectory,
+            behavior,
+            false,
+        )
+        logger.debug { "Loaded trainDataSetIterator" }
+        val testDataSetIterator = inst(
+            DatasetIteratorConfiguration(
+                200,
+                datasetIteratorConfiguration.distribution.map { if (it == 0) 0 else TEST_SET_SIZE },
+                datasetIteratorConfiguration.maxTestSamples
+            ),
+            seed + 1,
+            CustomDatasetType.TEST,
+            baseDirectory,
+            behavior,
+            false,
+        )
+        logger.debug { "Loaded testDataSetIterator" }
+        val fullTestDataSetIterator = inst(
+            DatasetIteratorConfiguration(
+                200,
+                List(datasetIteratorConfiguration.distribution.size) { datasetIteratorConfiguration.maxTestSamples },
+                datasetIteratorConfiguration.maxTestSamples
+            ),
+            seed + 2,
+            CustomDatasetType.FULL_TEST,
+            baseDirectory,
+            Behavior.BENIGN,
+            false,
+        )
+        logger.debug { "Loaded fullTestDataSetIterator" }
+        return listOf(trainDataSetIterator, testDataSetIterator, fullTestDataSetIterator)
+    }
+
     fun performIteration(epoch: Int, iteration: Int): Boolean {
-        newParams = network.params().dup()
+        newParams = neuralNetwork.params().dup()
         gradient = oldParams.sub(newParams)
 
-        if (joiningLateSkip()) {
-            return false
-        }
-        if (slowdownSkip()) {
-            return false
-        }
-
-        logger.t(logging) { "5 - outputlayer $nodeIndex: ${formatter.format(network.outputLayer.paramTable().getValue("W"))}" }
-        if (behavior == Behaviors.BENIGN) {
-            if (iteration % iterationsBeforeSending == 0) {
+        val formatter = NDArrayStrings()
+        logger.t(logging) { "5 - outputlayer $nodeIndex: ${formatter.format(neuralNetwork.outputLayer.paramTable().getValue("W"))}" }
+        if (configuration.trainConfiguration.behavior == Behavior.BENIGN) {
+            if (iteration % configuration.trainConfiguration.iterationsBeforeSending == 0) {
                 addPotentialAttacks()
             }
             val start = System.currentTimeMillis()
             potentiallyIntegrateParameters(iteration)
             if (iteration < 4) {
-                logger.debug { "Measured time for ${gar.text} iteration: ${System.currentTimeMillis() - start}" }
+                logger.debug { "Measured time for ${configuration.trainConfiguration.gar.text} iteration: ${System.currentTimeMillis() - start}" }
             }
         }
         newOtherModelBuffer.clear()
 
-        logger.t(logging) { "4 - outputlayer $nodeIndex: ${formatter.format(network.outputLayer.paramTable().getValue("W"))}" }
+        logger.t(logging) { "4 - outputlayer $nodeIndex: ${formatter.format(neuralNetwork.outputLayer.paramTable().getValue("W"))}" }
 
-        logger.t(logging) { "3 - outputlayer $nodeIndex: ${formatter.format(network.outputLayer.paramTable().getValue("W"))}" }
-        oldParams = network.params().dup()
+        logger.t(logging) { "3 - outputlayer $nodeIndex: ${formatter.format(neuralNetwork.outputLayer.paramTable().getValue("W"))}" }
+        oldParams = neuralNetwork.params().dup()
 
-        val epochEnd = fitNetwork(network, iterTrain)
+        val epochEnd = fitNetwork(neuralNetwork, iterTrain)
 
-        logger.t(logging) { "2 - outputlayer $nodeIndex: ${formatter.format(cw)}" }
 
-        if (iteration % iterationsBeforeSending == 0) {
-            logger.t(logging) { "1... - cw $nodeIndex: ${formatter.format(cw) }"}
-            shareModel(
-                network.params().dup(),
-                trainConfiguration,
-                random,
-                nodeIndex,
-                countPerPeer
-            )
+        if (iteration % configuration.trainConfiguration.iterationsBeforeSending == 0) {
+            shareModel(neuralNetwork.params().dup())
         }
 
         potentiallyEvaluate(epoch, iteration)
         return epochEnd
     }
 
-    private fun joiningLateSkip(): Boolean {
-        if (joiningLateRemainingIterations > 0) {
-            joiningLateRemainingIterations--
-            if (nodeIndex == 0) logger.debug { "JL => continue" }
-            newOtherModelBuffer.clear()
-            return true
+    private fun shareModel(
+        params: INDArray,
+    ) {
+        val message = craftMessage(params, configuration.trainConfiguration.behavior, random)
+        when (configuration.trainConfiguration.communicationPattern) {
+            CommunicationPattern.ALL -> neighbours.forEach { it.addNetworkMessage(nodeIndex, message) }
+            CommunicationPattern.RANDOM -> neighbours
+                .filter { it.getNodeIndex() != nodeIndex }
+                .random().addNetworkMessage(nodeIndex, message)
         }
-        return false
     }
 
-    private fun slowdownSkip(): Boolean {
-        if (slowdown != Slowdowns.NONE) {
-            if (slowdownRemainingIterations > 0) {
-                slowdownRemainingIterations--
-                if (nodeIndex == 0) logger.debug { "SD => continue" }
-                newOtherModelBuffer.clear()
-                return true
-            } else {
-                slowdownRemainingIterations = round(1 / slowdown.multiplier).toInt() - 1
-            }
+    protected fun craftMessage(first: INDArray, behavior: Behavior, random: Random): INDArray {
+        return when (behavior) {
+            Behavior.BENIGN -> first
+            Behavior.NOISE -> craftNoiseMessage(first, random)
+            Behavior.LABEL_FLIP_2 -> first
+            Behavior.LABEL_FLIP_ALL -> first
         }
-        return false
+    }
+
+    private fun craftNoiseMessage(first: INDArray, random: Random): INDArray {
+        val numColumns = first.columns()
+        return NDArray(Array(first.rows()) { FloatArray(numColumns) { random.nextFloat() / 2 - 0.2f } })
     }
 
     private fun fitNetwork(network: MultiLayerNetwork, dataSetIterator: CustomDatasetIterator): Boolean {
@@ -212,8 +217,8 @@ class Node(
     }
 
     private fun addPotentialAttacks() {
-        val attackVectors = modelPoisoningAttack.obj.generateAttack(
-            numAttackers,
+        val attackVectors = configuration.attackConfiguration.attack.obj.generateAttack(
+            configuration.attackConfiguration.numAttackers,
             oldParams,
             gradient,
             newOtherModelBuffer,
@@ -225,17 +230,17 @@ class Node(
     private fun potentiallyIntegrateParameters(iteration: Int) {
         val numPeers = newOtherModelBuffer.size + 1
         if (numPeers > 1) {
-            val averageParams = gar.obj.integrateParameters(
-                network,
+            val averageParams = configuration.trainConfiguration.gar.obj.integrateParameters(
+                neuralNetwork,
                 oldParams,
                 gradient,
                 newOtherModelBuffer,
                 recentOtherModelsBuffer,
                 iterTest,
                 countPerPeer,
-                logging/* && (iteration % iterationsBeforeEvaluation == 0)*/
+                logging
             )
-            network.setParameters(averageParams)
+            neuralNetwork.setParameters(averageParams)
             recentOtherModelsBuffer.addAll(newOtherModelBuffer.toList())
             while (recentOtherModelsBuffer.size > SIZE_RECENT_OTHER_MODELS) {
                 recentOtherModelsBuffer.removeFirst()
@@ -244,17 +249,12 @@ class Node(
     }
 
     private fun potentiallyEvaluate(epoch: Int, iteration: Int) {
-        if (iteration < 20 || iteration % iterationsBeforeEvaluation == 0) {
+        if (iteration < 20 || iteration % configuration.trainConfiguration.iterationsBeforeEvaluation == 0) {
             val evaluationScript = {
                 val elapsedTime2 = System.currentTimeMillis() - start
-                val extraElements2 = mapOf(
-                    Pair("before or after averaging", "after"),
-                    Pair("#peers included in current batch", newOtherModelBuffer.size.toString())
-                )
                 evaluationProcessor.evaluate(
                     iterTestFull,
-                    network,
-                    extraElements2,
+                    neuralNetwork,
                     elapsedTime2,
                     iteration,
                     epoch,
@@ -280,14 +280,6 @@ class Node(
     }
 
     fun printIterations() {
-        network.setListeners(ScoreIterationListener(5))
-    }
-
-    fun getLabels(): List<String> {
-        return labels
-    }
-
-    fun setCountPerPeer(countPerPeer: Map<Int, Int>) {
-        this.countPerPeer = countPerPeer
+        neuralNetwork.setListeners(ScoreIterationListener(5))
     }
 }

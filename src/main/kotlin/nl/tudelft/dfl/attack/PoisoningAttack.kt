@@ -1,12 +1,11 @@
 package nl.tudelft.dfl.attack
 
-import nl.tudelft.dfl.NumAttackers
 import org.nd4j.linalg.api.ndarray.INDArray
 import kotlin.random.Random
 
-abstract class ModelPoisoningAttack {
+abstract class PoisoningAttack {
     abstract fun generateAttack(
-        numAttackers: NumAttackers,
+        numAttackers: Int,
         oldModel: INDArray,
         gradient: INDArray,
         otherModels: Map<Int, INDArray>,

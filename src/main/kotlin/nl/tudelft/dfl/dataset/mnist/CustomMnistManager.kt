@@ -1,8 +1,8 @@
 package nl.tudelft.dfl.dataset.mnist
 
 import mu.KotlinLogging
-import nl.tudelft.dfl.Behaviors
 import nl.tudelft.dfl.dataset.DatasetManager
+import nl.tudelft.dfl.types.Behavior
 import org.deeplearning4j.datasets.mnist.MnistImageFile
 import org.deeplearning4j.datasets.mnist.MnistLabelFile
 import java.io.IOException
@@ -17,7 +17,7 @@ class CustomMnistManager(
     iteratorDistribution: IntArray,
     maxTestSamples: Int,
     seed: Long,
-    behavior: Behaviors,
+    behavior: Behavior,
 ) : DatasetManager() {
     private val sampledImages: Array<FloatArray>
     private val sampledLabels: IntArray
@@ -30,7 +30,7 @@ class CustomMnistManager(
         val labelIndexMappingTemp = labelIndexMappings[labelsFile]!!
 
         val labelIndexMapping = when (behavior) {
-            Behaviors.LABEL_FLIP_2 -> {
+            Behavior.LABEL_FLIP_2 -> {
                 val labelIndexMapping2 = labelIndexMappingTemp.map { it.copyOf() }.toTypedArray()
                 val usedIndices = iteratorDistribution.mapIndexed { index, num -> Pair(index, num) }.filter { (_, num) -> num > 0 }
                 val first = usedIndices[0].first
@@ -39,7 +39,7 @@ class CustomMnistManager(
                 labelIndexMapping2[second] = labelIndexMappingTemp[first]
                 labelIndexMapping2
             }
-            Behaviors.LABEL_FLIP_ALL -> {
+            Behavior.LABEL_FLIP_ALL -> {
                 labelIndexMappingTemp.indices.map { labelIndexMappingTemp[(it + 1) % labelIndexMappingTemp.size] }.toTypedArray()
             }
             else -> {

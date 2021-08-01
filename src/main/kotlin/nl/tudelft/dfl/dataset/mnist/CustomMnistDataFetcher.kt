@@ -1,9 +1,9 @@
 package nl.tudelft.dfl.dataset.mnist
 
 import mu.KotlinLogging
-import nl.tudelft.dfl.Behaviors
 import nl.tudelft.dfl.dataset.CustomDatasetType
 import nl.tudelft.dfl.dataset.CustomBaseDataFetcher
+import nl.tudelft.dfl.types.Behavior
 import org.apache.commons.io.FilenameUtils
 import org.apache.commons.io.FileUtils
 import org.deeplearning4j.common.resources.DL4JResources
@@ -36,7 +36,7 @@ class CustomMnistDataFetcher(
     seed: Long,
     val dataSetType: CustomDatasetType,
     maxTestSamples: Int,
-    behavior: Behaviors,
+    behavior: Behavior,
     transfer: Boolean,
 ) : CustomBaseDataFetcher(seed) {
     override val testBatches by lazy { createTestBatches() }
@@ -70,7 +70,7 @@ class CustomMnistDataFetcher(
                 if (transfer) (0 until NUM_EMNIST_CLASSES).map { NUM_EMNIST_EXAMPLES_PER_CLASS }.toIntArray() else iteratorDistribution,
                 maxTestSamples,
                 seed,
-                if (dataSetType == CustomDatasetType.FULL_TEST) Behaviors.BENIGN else behavior
+                if (dataSetType == CustomDatasetType.FULL_TEST) Behavior.BENIGN else behavior
             )
         }
         try {

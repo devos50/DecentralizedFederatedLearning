@@ -1,8 +1,7 @@
 package nl.tudelft.dfl
 
 import mu.KotlinLogging
-import nl.tudelft.dfl.MLConfiguration
-import nl.tudelft.dfl.d
+import nl.tudelft.dfl.configuration.RunConfiguration
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.nd4j.evaluation.IEvaluation
 import org.nd4j.evaluation.classification.Evaluation
@@ -18,8 +17,6 @@ private val logger = KotlinLogging.logger("EvaluationProcessor")
 
 class EvaluationProcessor(
     baseDirectory: File,
-    runner: String,
-    private val extraElementNames: List<String>
 ) {
     private val configurationHeader = arrayOf(
         "name",
@@ -72,8 +69,8 @@ class EvaluationProcessor(
     @Transient
     private val evaluationLines = arrayListOf(evaluationHeader)
     private val fileDirectory = File(baseDirectory.path, "evaluations")
-    private val fileResults = File(fileDirectory, "evaluation-$runner-${DATE_FORMAT.format(Date())}.csv")
-    private var fileMeta = File(fileDirectory, "evaluation-$runner-${DATE_FORMAT.format(Date())}.meta.csv")
+    private val fileResults = File(fileDirectory, "evaluation-${DATE_FORMAT.format(Date())}.csv")
+    private var fileMeta = File(fileDirectory, "evaluation-${DATE_FORMAT.format(Date())}.meta.csv")
     private lateinit var currentName: String
     private lateinit var garName: String
     private val startTime: Long
@@ -90,12 +87,6 @@ class EvaluationProcessor(
             fileLog!!.createNewFile()
         }
 
-        val newEvaluationHeader = Array(evaluationHeader.size + extraElementNames.size) { "" }
-        evaluationHeader.copyInto(newEvaluationHeader)
-        for ((index, name) in extraElementNames.withIndex()) {
-            newEvaluationHeader[evaluationHeader.size + index] = name
-        }
-        evaluationLines[0] = newEvaluationHeader
         startTime = System.currentTimeMillis()
     }
 
@@ -111,59 +102,53 @@ class EvaluationProcessor(
         }
     }
 
-    fun newSimulation(
+    fun writeConfigurations(
         name: String,
-        mlConfiguration: List<MLConfiguration>,
+        runConfiguration: RunConfiguration,
         transfer: Boolean
     ) {
         this.currentName = name
-        this.garName = mlConfiguration[0].trainConfiguration.gar.id
-        mlConfiguration.forEachIndexed { index, configuration ->
-            val line = parseConfiguration(name, index, configuration, transfer)
+        this.garName = runConfiguration.trainConfiguration.gar.id
+        listOf(runConfiguration).forEachIndexed { index, configuration ->
+            val nnConfiguration = configuration.nnConfiguration
+            val datasetIteratorConfiguration = configuration.datasetIteratorConfiguration
+            val trainConfiguration = configuration.trainConfiguration
+            val modelPoisoningConfiguration = configuration.attackConfiguration
+            val line = arrayOf(
+                name,
+                index.toString(),
+                transfer,
+                configuration.dataset.id,
+
+                nnConfiguration.optimizer.id,
+                nnConfiguration.learningRate.id,
+                nnConfiguration.momentum.id,
+                nnConfiguration.l2.text,
+
+                datasetIteratorConfiguration.batchSize,
+                datasetIteratorConfiguration.distribution.toString().replace(", ", "-"),
+                datasetIteratorConfiguration.maxTestSamples,
+
+                trainConfiguration.gar.id,
+                trainConfiguration.communicationPattern.id,
+                trainConfiguration.behavior.id,
+                trainConfiguration.maxIterations,
+                trainConfiguration.iterationsBeforeEvaluation,
+                trainConfiguration.iterationsBeforeSending,
+
+                modelPoisoningConfiguration.attack.id,
+                modelPoisoningConfiguration.numAttackers,
+            ).joinToString(",")
+
             configurationLines.add(line)
         }
         PrintWriter(fileMeta).use { pw -> configurationLines.forEach(pw::println) }
-    }
-
-    private fun parseConfiguration(name: String, index: Int, configuration: MLConfiguration, transfer: Boolean): String {
-        val nnConfiguration = configuration.nnConfiguration
-        val datasetIteratorConfiguration = configuration.datasetIteratorConfiguration
-        val trainConfiguration = configuration.trainConfiguration
-        val modelPoisoningConfiguration = configuration.modelPoisoningConfiguration
-        return arrayOf(
-            name,
-            index.toString(),
-            transfer,
-            configuration.dataset.text,
-
-            nnConfiguration.optimizer.text,
-            nnConfiguration.learningRate.text,
-            nnConfiguration.momentum?.text ?: "<null>",
-            nnConfiguration.l2.text,
-
-            datasetIteratorConfiguration.batchSize.text,
-            datasetIteratorConfiguration.distribution.toString().replace(", ", "-"),
-            datasetIteratorConfiguration.maxTestSamples.text,
-
-            trainConfiguration.gar.text,
-            trainConfiguration.communicationPattern.text,
-            trainConfiguration.behavior.text,
-            trainConfiguration.maxIteration.text,
-            trainConfiguration.slowdown.text,
-            trainConfiguration.joiningLate.text,
-            trainConfiguration.iterationsBeforeEvaluation,
-            trainConfiguration.iterationsBeforeSending,
-
-            modelPoisoningConfiguration.attack.text,
-            modelPoisoningConfiguration.numAttackers.text,
-        ).joinToString(",")
     }
 
     private fun call(
         evaluations: Array<out IEvaluation<*>>,
         simulationIndex: Int,
         score: Double,
-        extraElements: Map<String, String>,
         elapsedTime: Long,
         iterations: Int,
         epoch: Int
@@ -189,11 +174,8 @@ class EvaluationProcessor(
             mcc.toString(),
             score.toString()
         )
-        evaluationLines.add(Array(dataLineElements.size + extraElements.size) { "" })
+        evaluationLines.add(Array(dataLineElements.size) { "" })
         System.arraycopy(dataLineElements, 0, evaluationLines.last(), 0, dataLineElements.size)
-        for ((name, value) in extraElements) {
-            evaluationLines.last()[dataLineElements.size + extraElementNames.indexOf(name)] = value
-        }
         PrintWriter(fileResults).use { pw ->
             evaluationLines
                 .map(::convertToCSV)
@@ -214,23 +196,9 @@ class EvaluationProcessor(
         }
     }
 
-    fun done() {
-        synchronized(evaluationLines) {
-            val totalTime = System.currentTimeMillis() - startTime
-            evaluationLines.add(Array(evaluationLines[0].size) { if (it == 0) { totalTime.toString() } else "DONE" })
-
-            PrintWriter(fileResults).use { pw ->
-                evaluationLines
-                    .map(::convertToCSV)
-                    .forEach(pw::println)
-            }
-        }
-    }
-
     fun evaluate(
         testDataSetIterator: DataSetIterator,
         network: MultiLayerNetwork,
-        extraElements: Map<String, String>,
         elapsedTime: Long,
         iterations: Int,
         epoch: Int,
@@ -241,19 +209,14 @@ class EvaluationProcessor(
         val evaluations = arrayOf(Evaluation())
 
         logger.d(logging) {
-            "Starting evaluation, #iterations = $iterations, ${
-                extraElements.getOrDefault(
-                    "before or after averaging",
-                    ""
-                )
-            }"
+            "Starting evaluation, #iterations = $iterations"
         }
         network.doEvaluation(testDataSetIterator, *evaluations)
 
         for (evaluation in evaluations) {
             logger.d(logging) { "${evaluation.javaClass.simpleName}:\n${evaluation.stats(false, true)}" }
         }
-        return call(evaluations, simulationIndex, network.score(), extraElements, elapsedTime, iterations, epoch)
+        return call(evaluations, simulationIndex, network.score(), elapsedTime, iterations, epoch)
     }
 
     companion object {
