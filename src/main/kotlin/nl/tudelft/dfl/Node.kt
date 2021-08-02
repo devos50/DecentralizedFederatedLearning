@@ -173,17 +173,17 @@ class Node(
     private fun shareModel(
         params: INDArray,
     ) {
-        val message = craftMessage(params, configuration.trainConfiguration.behavior, random)
+        val message = craftMessage(params)
         when (configuration.trainConfiguration.communicationPattern) {
             CommunicationPattern.ALL -> neighbours.forEach { it.addNetworkMessage(nodeIndex, message) }
             CommunicationPattern.RANDOM -> neighbours
-                .filter { it.getNodeIndex() != nodeIndex }
+                .filter { it.nodeIndex != nodeIndex }
                 .random().addNetworkMessage(nodeIndex, message)
         }
     }
 
-    protected fun craftMessage(first: INDArray, behavior: Behavior, random: Random): INDArray {
-        return when (behavior) {
+    protected fun craftMessage(first: INDArray): INDArray {
+        return when (configuration.trainConfiguration.behavior) {
             Behavior.BENIGN -> first
             Behavior.NOISE -> craftNoiseMessage(first, random)
             Behavior.LABEL_FLIP_2 -> first
@@ -261,15 +261,7 @@ class Node(
         (0 until newOtherModelBufferTemp.size - 1).forEach { index -> newOtherModelBufferTemp[index] = newOtherModelBufferTemp[index+1] }
     }
 
-    fun getNodeIndex(): Int {
-        return nodeIndex
-    }
-
     fun addNetworkMessage(from: Int, message: INDArray) {
         newOtherModelBufferTemp.last()[from] = message.dup()
-    }
-
-    fun printIterations() {
-        neuralNetwork.setListeners(ScoreIterationListener(5))
     }
 }
