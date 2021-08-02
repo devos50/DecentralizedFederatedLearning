@@ -28,7 +28,7 @@ class Node(
     private val evaluationProcessor: EvaluationProcessor,
     private val start: Long,
 ) {
-    private val configuration: RunConfiguration
+    val configuration: RunConfiguration
     var neighbours: List<Node> = listOf()
     private val recentOtherModelsBuffer = ArrayDeque<Pair<Int, INDArray>>()
     private val newOtherModelBufferTemp = Array<MutableMap<Int, INDArray>>(1) { ConcurrentHashMap() }
@@ -45,9 +45,6 @@ class Node(
     private val iterTestFull: CustomDatasetIterator
     private val logging: Boolean
 
-    private lateinit var countPerPeer: Map<Int, Int>
-
-
     init {
         configuration = runConfiguration
 
@@ -63,10 +60,7 @@ class Node(
         gradient = NDArray()
         val iters = getDataSetIterators(
             configuration.dataset.inst,
-            configuration.datasetIteratorConfiguration,
-            nodeIndex.toLong() * 10,
             baseDirectory,
-            configuration.trainConfiguration.behavior
         )
         iterTrain = iters[0]
         iterTest = iters[1]
@@ -98,42 +92,40 @@ class Node(
 
     protected fun getDataSetIterators(
         inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behavior, transfer: Boolean) -> CustomDatasetIterator,
-        datasetIteratorConfiguration: DatasetIteratorConfiguration,
-        seed: Long,
         baseDirectory: File,
-        behavior: Behavior,
     ): List<CustomDatasetIterator> {
+        val seed = nodeIndex.toLong() * 10
         val trainDataSetIterator = inst(
             DatasetIteratorConfiguration(
-                datasetIteratorConfiguration.batchSize,
-                datasetIteratorConfiguration.distribution,
-                datasetIteratorConfiguration.maxTestSamples
+                configuration.datasetIteratorConfiguration.batchSize,
+                configuration.datasetIteratorConfiguration.distribution,
+                configuration.datasetIteratorConfiguration.maxTestSamples
             ),
             seed,
             CustomDatasetType.TRAIN,
             baseDirectory,
-            behavior,
+            configuration.trainConfiguration.behavior,
             false,
         )
         logger.debug { "Loaded trainDataSetIterator" }
         val testDataSetIterator = inst(
             DatasetIteratorConfiguration(
                 200,
-                datasetIteratorConfiguration.distribution.map { if (it == 0) 0 else TEST_SET_SIZE },
-                datasetIteratorConfiguration.maxTestSamples
+                configuration.datasetIteratorConfiguration.distribution.map { if (it == 0) 0 else TEST_SET_SIZE },
+                configuration.datasetIteratorConfiguration.maxTestSamples
             ),
             seed + 1,
             CustomDatasetType.TEST,
             baseDirectory,
-            behavior,
+            configuration.trainConfiguration.behavior,
             false,
         )
         logger.debug { "Loaded testDataSetIterator" }
         val fullTestDataSetIterator = inst(
             DatasetIteratorConfiguration(
                 200,
-                List(datasetIteratorConfiguration.distribution.size) { datasetIteratorConfiguration.maxTestSamples },
-                datasetIteratorConfiguration.maxTestSamples
+                List(configuration.datasetIteratorConfiguration.distribution.size) { configuration.datasetIteratorConfiguration.maxTestSamples },
+                configuration.datasetIteratorConfiguration.maxTestSamples
             ),
             seed + 2,
             CustomDatasetType.FULL_TEST,
@@ -156,7 +148,7 @@ class Node(
                 addPotentialAttacks()
             }
             val start = System.currentTimeMillis()
-            potentiallyIntegrateParameters(iteration)
+            potentiallyIntegrateParameters()
             if (iteration < 4) {
                 logger.debug { "Measured time for ${configuration.trainConfiguration.gar.text} iteration: ${System.currentTimeMillis() - start}" }
             }
@@ -169,7 +161,6 @@ class Node(
         oldParams = neuralNetwork.params().dup()
 
         val epochEnd = fitNetwork(neuralNetwork, iterTrain)
-
 
         if (iteration % configuration.trainConfiguration.iterationsBeforeSending == 0) {
             shareModel(neuralNetwork.params().dup())
@@ -227,7 +218,7 @@ class Node(
         newOtherModelBuffer.putAll(attackVectors)
     }
 
-    private fun potentiallyIntegrateParameters(iteration: Int) {
+    private fun potentiallyIntegrateParameters() {
         val numPeers = newOtherModelBuffer.size + 1
         if (numPeers > 1) {
             val averageParams = configuration.trainConfiguration.gar.obj.integrateParameters(
@@ -237,7 +228,6 @@ class Node(
                 newOtherModelBuffer,
                 recentOtherModelsBuffer,
                 iterTest,
-                countPerPeer,
                 logging
             )
             neuralNetwork.setParameters(averageParams)

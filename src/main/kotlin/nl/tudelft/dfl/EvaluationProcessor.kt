@@ -61,9 +61,7 @@ class EvaluationProcessor(
         "recall",
         "gmeasure",
         "mcc",
-        "score",
-        "before or after averaging",
-        "#peers included in current batch"
+        "score"
     )
 
     @Transient
@@ -81,12 +79,6 @@ class EvaluationProcessor(
         }
         fileResults.createNewFile()
         fileMeta.createNewFile()
-
-        if (fileLog == null) {
-            fileLog = File(fileDirectory, "evaluation-${DATE_FORMAT.format(Date())}.txt")
-            fileLog!!.createNewFile()
-        }
-
         startTime = System.currentTimeMillis()
     }
 
@@ -104,21 +96,21 @@ class EvaluationProcessor(
 
     fun writeConfigurations(
         name: String,
-        runConfiguration: RunConfiguration,
+        nodes: List<Node>,
         transfer: Boolean
     ) {
         this.currentName = name
-        this.garName = runConfiguration.trainConfiguration.gar.id
-        listOf(runConfiguration).forEachIndexed { index, configuration ->
-            val nnConfiguration = configuration.nnConfiguration
-            val datasetIteratorConfiguration = configuration.datasetIteratorConfiguration
-            val trainConfiguration = configuration.trainConfiguration
-            val modelPoisoningConfiguration = configuration.attackConfiguration
+        this.garName = nodes[0].configuration.trainConfiguration.gar.id
+        nodes.forEachIndexed { index, node ->
+            val nnConfiguration = node.configuration.nnConfiguration
+            val datasetIteratorConfiguration = node.configuration.datasetIteratorConfiguration
+            val trainConfiguration = node.configuration.trainConfiguration
+            val modelPoisoningConfiguration = node.configuration.attackConfiguration
             val line = arrayOf(
                 name,
                 index.toString(),
                 transfer,
-                configuration.dataset.id,
+                node.configuration.dataset.id,
 
                 nnConfiguration.optimizer.id,
                 nnConfiguration.learningRate.id,
@@ -217,22 +209,5 @@ class EvaluationProcessor(
             logger.d(logging) { "${evaluation.javaClass.simpleName}:\n${evaluation.stats(false, true)}" }
         }
         return call(evaluations, simulationIndex, network.score(), elapsedTime, iterations, epoch)
-    }
-
-    companion object {
-        var fileLog : File? = null
-        private val logLines = arrayListOf<String>()
-
-        fun log(message: String) {
-            synchronized(logLines) {
-                logLines.add(message)
-                if (fileLog != null) {
-                    PrintWriter(fileLog!!).use { pw ->
-                        logLines
-                            .forEach(pw::println)
-                    }
-                }
-            }
-        }
     }
 }

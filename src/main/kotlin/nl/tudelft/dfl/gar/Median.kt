@@ -24,7 +24,6 @@ class Median : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        countPerPeer: Map<Int, Int>,
         logging: Boolean
     ): INDArray {
         logger.d(logging) { formatName("Median") }

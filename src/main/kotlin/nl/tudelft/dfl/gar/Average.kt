@@ -16,7 +16,6 @@ class Average : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        countPerPeer: Map<Int, Int>,
         logging: Boolean
     ): INDArray {
         logger.d(logging) { formatName("Simple average") }

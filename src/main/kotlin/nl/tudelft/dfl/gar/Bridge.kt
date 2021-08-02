@@ -25,7 +25,6 @@ class Bridge(private val b: Int) : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        countPerPeer: Map<Int, Int>,
         logging: Boolean
     ): INDArray {
         logger.d(logging) { formatName("BRIDGE") }
