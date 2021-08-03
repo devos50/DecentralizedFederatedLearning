@@ -19,6 +19,8 @@ dependencies {
     implementation 'io.github.microutils:kotlin-logging-jvm:2.0.10'
     implementation "org.jetbrains.kotlinx:kotlinx-serialization-runtime:1.0-M1-1.4.0-rc"
 
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+
     def dl4j_version = "1.0.0-M1"
 
     implementation (group: "org.nd4j", name: "nd4j-native", version: dl4j_version) {
@@ -35,7 +37,7 @@ dependencies {
 }
 
 test {
-    useJUnit()
+    useJUnitPlatform()
 }
 
 compileKotlin {

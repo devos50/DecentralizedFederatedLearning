@@ -2,11 +2,10 @@ package nl.tudelft.dfl.gar
 
 import mu.KotlinLogging
 import nl.tudelft.dfl.dataset.CustomDatasetIterator
-import nl.tudelft.dfl.d
 import org.bytedeco.javacpp.indexer.FloatRawIndexer
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.nd4j.linalg.api.ndarray.INDArray
-import org.nd4j.linalg.cpu.nativecpu.NDArray
+import org.nd4j.linalg.factory.Nd4j
 
 private val logger = KotlinLogging.logger("Median")
 
@@ -24,18 +23,12 @@ class Median : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        logging: Boolean
     ): INDArray {
-        logger.d(logging) { formatName("Median") }
+        logger.debug { formatName("Median") }
         val models = HashMap<Int, INDArray>()
         models[-1] = oldModel.sub(gradient)
         models.putAll(newOtherModels)
-        logger.d(logging) { "Found ${models.size} models in total" }
         return median(models)
-    }
-
-    override fun isDirectIntegration(): Boolean {
-        return false
     }
 
     private fun median(models: HashMap<Int, INDArray>): INDArray {
@@ -55,17 +48,6 @@ class Median : AggregationRule() {
             modelsAsArrays.forEachIndexed { j, modelsAsArray -> elements[j] = modelsAsArray[i] }
             newVector[i] = medianHelper(elements)
         }
-        return NDArray(Array(1) { newVector })
-    }
-
-    private fun toFloatArray(first: INDArray): FloatArray {
-        val data = first.data()
-        val length = data.length().toInt()
-        val indexer = data.indexer() as FloatRawIndexer
-        val array = FloatArray(length)
-        for (i in 0 until length) {
-            array[i] = indexer.getRaw(i.toLong())
-        }
-        return array
+        return Nd4j.createFromArray(*newVector)
     }
 }

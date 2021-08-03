@@ -148,7 +148,11 @@ class Node(
                 addPotentialAttacks()
             }
             val start = System.currentTimeMillis()
+
+
             potentiallyIntegrateParameters()
+
+
             if (iteration < 4) {
                 logger.debug { "Measured time for ${configuration.trainConfiguration.gar.text} iteration: ${System.currentTimeMillis() - start}" }
             }
@@ -219,16 +223,14 @@ class Node(
     }
 
     private fun potentiallyIntegrateParameters() {
-        val numPeers = newOtherModelBuffer.size + 1
-        if (numPeers > 1) {
+        if (newOtherModelBuffer.size > 1) {
             val averageParams = configuration.trainConfiguration.gar.obj.integrateParameters(
                 neuralNetwork,
                 oldParams,
                 gradient,
                 newOtherModelBuffer,
                 recentOtherModelsBuffer,
-                iterTest,
-                logging
+                iterTest
             )
             neuralNetwork.setParameters(averageParams)
             recentOtherModelsBuffer.addAll(newOtherModelBuffer.toList())

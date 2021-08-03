@@ -10,7 +10,7 @@ private val logger = KotlinLogging.logger("Krum")
 
 fun getKrum(models: Array<INDArray>, b: Int): Int {
     val distances = Array(models.size) { DoubleArray(models.size) }
-    for (i in 0 until models.size) {
+    for (i in models.indices) {
         distances[i][i] = 9999999.0
         for (j in i + 1 until models.size) {
             val distance = models[i].distance2(models[j])
@@ -33,25 +33,19 @@ class Krum(private val b: Int) : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        logging: Boolean
     ): INDArray {
-        logger.d(logging) { formatName("Krum") }
+        logger.debug { formatName("Krum") }
         val modelMap = HashMap<Int, INDArray>()
         val newModel = oldModel.sub(gradient)
         modelMap[-1] = newModel
         modelMap.putAll(newOtherModels)
         val models = modelMap.values.toTypedArray()
-        logger.d(logging) { "Found ${models.size} models in total" }
         return if (models.size <= b + 2 + 1) {  // The additional +1 is because we need to add the current peer itself
-            logger.d(logging) { "Not using KRUM rule because not enough models found..." }
+            logger.debug { "Not using KRUM rule because not enough models found..." }
             newModel
         } else {
             val bestCandidate = getKrum(models, b)
             newModel.addi(models[bestCandidate]).divi(2)
         }
-    }
-
-    override fun isDirectIntegration(): Boolean {
-        return false
     }
 }

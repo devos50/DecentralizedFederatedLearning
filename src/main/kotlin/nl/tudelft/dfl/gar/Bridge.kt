@@ -7,6 +7,7 @@ import org.bytedeco.javacpp.indexer.FloatRawIndexer
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.nd4j.linalg.api.ndarray.INDArray
 import org.nd4j.linalg.cpu.nativecpu.NDArray
+import org.nd4j.linalg.factory.Nd4j
 
 private val logger = KotlinLogging.logger("Bridge")
 
@@ -25,14 +26,12 @@ class Bridge(private val b: Int) : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        logging: Boolean
     ): INDArray {
-        logger.d(logging) { formatName("BRIDGE") }
+        logger.debug { formatName("BRIDGE") }
         val models = HashMap<Int, INDArray>()
         val newModel = oldModel.sub(gradient)
         models[-1] = newModel
         models.putAll(newOtherModels)
-        logger.d(logging) { "Found ${models.size} models in total" }
         return if (models.size < minimumModels) {
             newModel
         } else {
@@ -43,22 +42,7 @@ class Bridge(private val b: Int) : AggregationRule() {
                 modelsAsArrays.forEachIndexed { j, modelsAsArray -> elements[j] = modelsAsArray[i] }
                 newVector[i] = trimmedMean(b, elements)
             }
-            NDArray(Array(1) { newVector })
+            Nd4j.createFromArray(*newVector)
         }
-    }
-
-    private fun toFloatArray(first: INDArray): FloatArray {
-        val data = first.data()
-        val length = data.length().toInt()
-        val indexer = data.indexer() as FloatRawIndexer
-        val array = FloatArray(length)
-        for (i in 0 until length) {
-            array[i] = indexer.getRaw(i.toLong())
-        }
-        return array
-    }
-
-    override fun isDirectIntegration(): Boolean {
-        return false
     }
 }

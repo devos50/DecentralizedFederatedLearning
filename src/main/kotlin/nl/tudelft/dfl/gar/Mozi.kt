@@ -21,15 +21,14 @@ class Mozi(private val fracBenign: Double) : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        logging: Boolean
     ): INDArray {
-        logger.d(logging) { formatName("MOZI") }
-        logger.d(logging) { "Found ${newOtherModels.size} other models" }
-        logger.d(logging) { "oldModel: " + oldModel.getDouble(0) }
-        val Ndistance = applyDistanceFilter(oldModel, newOtherModels, logging)
-        logger.d(logging) { "After distance filter, remaining:${Ndistance.size}" }
-        val Nperformance = applyPerformanceFilter(oldModel, Ndistance, network, testDataSetIterator, logging)
-        logger.d(logging) { "After performance filter, remaining:${Nperformance.size}" }
+        logger.debug { formatName("MOZI") }
+        logger.debug { "Found ${newOtherModels.size} other models" }
+        logger.debug { "oldModel: " + oldModel.getDouble(0) }
+        val Ndistance = applyDistanceFilter(oldModel, newOtherModels)
+        logger.debug { "After distance filter, remaining:${Ndistance.size}" }
+        val Nperformance = applyPerformanceFilter(oldModel, Ndistance, network, testDataSetIterator)
+        logger.debug { "After performance filter, remaining:${Nperformance.size}" }
 //        if (Nperformance.isEmpty()) {
 //            logger.debug("Nperformance empty => taking ${Ndistance[0].getDouble(0)}")
 //            Nperformance = arrayListOf(Ndistance[0])
@@ -68,7 +67,7 @@ class Mozi(private val fracBenign: Double) : AggregationRule() {
         for (model in models.withIndex()) {
             network.setParameters(model.value)
             scores[model.index] = network.score(sample)
-            logger.d(logging) { "otherLoss = ${scores[model.index]}" }
+            logger.debug { "otherLoss = ${scores[model.index]}" }
         }
         return scores
     }
@@ -76,17 +75,16 @@ class Mozi(private val fracBenign: Double) : AggregationRule() {
     private fun applyDistanceFilter(
         oldModel: INDArray,
         newOtherModels: Map<Int, INDArray>,
-        logging: Boolean
     ): Array<INDArray> {
         val distances = hashMapOf<Int, Double>()
         for (otherModel in newOtherModels) {
             val distance = oldModel.distance2(otherModel.value)
-            logger.d(logging) { "Distance calculated: $distance" }
+            logger.debug { "Distance calculated: $distance" }
             distances[otherModel.key] = distance
         }
         val sortedDistances = distances.toList().sortedBy { it.second }.toMap()
         val numBenign = ceil(fracBenign * newOtherModels.size).toInt()
-        logger.d(logging) { "#benign: $numBenign" }
+        logger.debug { "#benign: $numBenign" }
         return sortedDistances
             .keys
             .take(numBenign)
@@ -99,21 +97,20 @@ class Mozi(private val fracBenign: Double) : AggregationRule() {
         newOtherModels: Array<INDArray>,
         network: MultiLayerNetwork,
         testDataSetIterator: DataSetIterator,
-        logging: Boolean
     ): Array<INDArray> {
         val result = arrayListOf<INDArray>()
         testDataSetIterator.reset()
         val sample = testDataSetIterator.next(TEST_BATCH)
         val oldLoss = calculateLoss(oldModel, network, sample)
-        logger.d(logging) { "oldLoss: $oldLoss" }
-        val otherLosses = calculateLoss(newOtherModels, network, sample, logging)
+        logger.debug { "oldLoss: $oldLoss" }
+        val otherLosses = calculateLoss(newOtherModels, network, sample, true)
         for ((index, otherLoss) in otherLosses.withIndex()) {
-            logger.d(logging) { "otherLoss $index: $otherLoss" }
+            logger.debug { "otherLoss $index: $otherLoss" }
             if (otherLoss <= oldLoss) {
                 result.add(newOtherModels[index])
-                logger.d(logging) { "ADDING model($index): " + newOtherModels[index].getDouble(0) }
+                logger.debug { "ADDING model($index): " + newOtherModels[index].getDouble(0) }
             } else {
-                logger.d(logging) { "NOT adding model($index): " + newOtherModels[index].getDouble(0) }
+                logger.debug { "NOT adding model($index): " + newOtherModels[index].getDouble(0) }
             }
         }
         return result.toTypedArray()
@@ -129,9 +126,5 @@ class Mozi(private val fracBenign: Double) : AggregationRule() {
             }
         }
         return arr!!.divi(list.size)
-    }
-
-    override fun isDirectIntegration(): Boolean {
-        return false
     }
 }

@@ -16,18 +16,12 @@ class Average : AggregationRule() {
         newOtherModels: Map<Int, INDArray>,
         recentOtherModels: ArrayDeque<Pair<Int, INDArray>>,
         testDataSetIterator: CustomDatasetIterator,
-        logging: Boolean
     ): INDArray {
-        logger.d(logging) { formatName("Simple average") }
+        logger.debug { formatName("Simple average") }
         val models = HashMap<Int, INDArray>()
         models[-1] = oldModel.sub(gradient)
         models.putAll(newOtherModels)
-        logger.d(logging) { "Found ${models.size} models in total" }
         return average(models)
-    }
-
-    override fun isDirectIntegration(): Boolean {
-        return false
     }
 
     private fun average(models: HashMap<Int, INDArray>): INDArray {
