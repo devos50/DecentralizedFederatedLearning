@@ -36,11 +36,8 @@ class EvaluationProcessor(
         "communicationPattern",
         "behavior",
         "numEpochs",
-        "slowdown",
-        "joiningLate",
         "iterationsBeforeEvaluation",
         "iterationsBeforeSending",
-
         "local model poisoning attack",
         "#attackers"
     ).joinToString(",")

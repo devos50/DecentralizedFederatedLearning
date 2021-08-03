@@ -11,4 +11,8 @@ data class AttackConfiguration(
             return AttackConfiguration(ModelPoisoningAttack.NONE, 0)
         }
     }
+
+    fun copy(): AttackConfiguration {
+        return AttackConfiguration(attack, numAttackers)
+    }
 }

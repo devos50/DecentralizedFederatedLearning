@@ -26,4 +26,8 @@ data class NNConfiguration(
                 dataset.defaultL2)
         }
     }
+
+    fun copy(): NNConfiguration {
+        return NNConfiguration(optimizer, learningRate, momentum, l2)
+    }
 }

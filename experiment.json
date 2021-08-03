@@ -14,8 +14,22 @@
         "iterationsBeforeSending": "1",
         "behavior": "benign",
         "modelPoisoningAttack": "none",
-        "numNodes": "5",
+        "numNodes": "10",
         "numAttackers": "0"
+    },
+    "nodeSettings": {
+        "1-1": {
+            "behavior": "label_flip_all"
+        },
+        "2-2": {
+            "behavior": "noise"
+        },
+        "3-3": {
+            "modelPoisoningAttack": "fang_2020_trimmed_mean"
+        },
+        "4-4": {
+            "modelPoisoningAttack": "fang_2020_krum"
+        }
     },
     "variableValues": {
         "gar": ["average", "median", "krum", "bridge", "mozi", "none"]

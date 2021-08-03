@@ -15,4 +15,8 @@ data class DatasetIteratorConfiguration(
                 10)
         }
     }
+
+    fun copy(): DatasetIteratorConfiguration {
+        return DatasetIteratorConfiguration(batchSize, distribution.toList(), maxTestSamples)
+    }
 }

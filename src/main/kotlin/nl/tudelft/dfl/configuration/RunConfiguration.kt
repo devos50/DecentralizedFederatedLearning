@@ -21,4 +21,14 @@ data class RunConfiguration(
                 AttackConfiguration.defaultConfiguration())
         }
     }
+
+    fun copy(): RunConfiguration {
+        return RunConfiguration(
+            dataset,
+            numNodes,
+            datasetIteratorConfiguration.copy(),
+            nnConfiguration.copy(),
+            trainConfiguration.copy(),
+            attackConfiguration.copy())
+    }
 }

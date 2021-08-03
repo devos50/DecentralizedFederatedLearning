@@ -7,4 +7,5 @@ class ExperimentJSON {
     lateinit var name: String
     lateinit var fixedValues: Map<String, String>
     lateinit var variableValues: Map<String, List<String>>
+    lateinit var nodeSettings: Map<String, Map<String, String>>
 }

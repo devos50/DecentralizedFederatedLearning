@@ -25,4 +25,8 @@ data class TrainConfiguration(
                 false)
         }
     }
+
+    fun copy(): TrainConfiguration {
+        return TrainConfiguration(maxIterations, gar, communicationPattern, behavior, iterationsBeforeEvaluation, iterationsBeforeSending, transfer)
+    }
 }

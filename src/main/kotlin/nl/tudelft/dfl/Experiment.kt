@@ -99,10 +99,30 @@ class Experiment(experimentFilePath: String) {
 
             val start = System.currentTimeMillis()
 
+            // create configurations for each node
+            val nodeConfigurations = List(configuration.numNodes) { configuration.copy() }
+
+            // apply node-specific settings
+            for((range, nodeSettings) in json.nodeSettings) {
+                val startRange = range.split("-")[0].toInt()
+                val endRange = range.split("-")[1].toInt()
+
+                for((nodeSetting, value) in nodeSettings) {
+                    for(nodeIndex in startRange .. endRange) {
+                        if(nodeSetting == "behavior") {
+                            nodeConfigurations[nodeIndex - 1].trainConfiguration.behavior = Behavior.load(value)
+                        }
+                        if(nodeSetting == "modelPoisoningAttack") {
+                            nodeConfigurations[nodeIndex - 1].attackConfiguration.attack = ModelPoisoningAttack.load(value)
+                        }
+                    }
+                }
+            }
+
             nodes = List(configuration.numNodes) {
                 Node(
                     it,
-                    configuration,
+                    nodeConfigurations[it],
                     baseDirectory,
                     evaluationProcessor,
                     start,
