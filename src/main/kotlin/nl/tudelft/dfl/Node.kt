@@ -48,7 +48,7 @@ class Node(
     init {
         configuration = runConfiguration
 
-        neuralNetwork = generateNeuralNetwork(configuration.dataset.architecture, nodeIndex, NNConfigurationMode.REGULAR)
+        neuralNetwork = generateNeuralNetwork(configuration.dataset.architecture, nodeIndex + 1, NNConfigurationMode.REGULAR)
         neuralNetwork.outputLayer.params().muli(0)
 
         oldParams = neuralNetwork.params().dup()
