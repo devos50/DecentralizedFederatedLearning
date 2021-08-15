@@ -93,8 +93,7 @@ class Experiment(experimentFilePath: String) {
         val evaluationProcessor = EvaluationProcessor(baseDirectory)
 
         for(configuration in configurations) {
-            val transfer = configuration.trainConfiguration.transfer
-            val fullFigureName = "$json.name - ${configuration.trainConfiguration.gar.id} - ${if (transfer) "transfer" else "regular"}"
+            val fullFigureName = "$json.name - ${configuration.trainConfiguration.gar.id} - regular}"
             logger.error { "Going to test: $fullFigureName" }
 
             val start = System.currentTimeMillis()
@@ -129,7 +128,7 @@ class Experiment(experimentFilePath: String) {
                 )
             }
 
-            evaluationProcessor.writeConfigurations(json.name, nodes, transfer)
+            evaluationProcessor.writeConfigurations(json.name, nodes)
 
             // connect peers to each other
             nodes.forEach() {

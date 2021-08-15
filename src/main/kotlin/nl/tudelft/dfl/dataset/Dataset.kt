@@ -28,7 +28,7 @@ enum class Dataset(
     val defaultBatchSize: Int,
     val defaultIteratorDistribution: IteratorDistribution,
     val architecture: (nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerConfiguration,
-    val inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behavior, transfer: Boolean) -> CustomDatasetIterator,
+    val inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behavior) -> CustomDatasetIterator,
 ) {
 
     MNIST(
@@ -107,7 +107,7 @@ fun generateDefaultMNISTConfiguration(
     seed: Int,
     mode: NNConfigurationMode,
 ): MultiLayerConfiguration {
-    val numClasses = if (mode == NNConfigurationMode.TRANSFER) 26 else 10
+    val numClasses = 10
     val layers = arrayOf<Layer>(
         ConvolutionLayer
             .Builder(intArrayOf(5, 5), intArrayOf(1, 1))

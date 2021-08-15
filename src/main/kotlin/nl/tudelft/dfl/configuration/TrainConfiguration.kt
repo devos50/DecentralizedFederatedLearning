@@ -11,7 +11,6 @@ data class TrainConfiguration(
     var behavior: Behavior,
     var iterationsBeforeEvaluation: Int,
     var iterationsBeforeSending: Int,
-    var transfer: Boolean,
 ) {
     companion object {
         fun defaultConfiguration() : TrainConfiguration {
@@ -21,12 +20,11 @@ data class TrainConfiguration(
                 CommunicationPattern.ALL,
                 Behavior.BENIGN,
                 10,
-                1,
-                false)
+                1)
         }
     }
 
     fun copy(): TrainConfiguration {
-        return TrainConfiguration(maxIterations, gar, communicationPattern, behavior, iterationsBeforeEvaluation, iterationsBeforeSending, transfer)
+        return TrainConfiguration(maxIterations, gar, communicationPattern, behavior, iterationsBeforeEvaluation, iterationsBeforeSending)
     }
 }

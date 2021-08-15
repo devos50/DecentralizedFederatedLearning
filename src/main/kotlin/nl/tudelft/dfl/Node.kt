@@ -48,11 +48,7 @@ class Node(
     init {
         configuration = runConfiguration
 
-        neuralNetwork = if (configuration.trainConfiguration.transfer) {
-            loadFromTransferNetwork(File(baseDirectory, "transfer-${configuration.dataset.id}"), configuration.dataset.architecture)
-        } else {
-            generateNeuralNetwork(configuration.dataset.architecture, nodeIndex, NNConfigurationMode.REGULAR)
-        }
+        neuralNetwork = generateNeuralNetwork(configuration.dataset.architecture, nodeIndex, NNConfigurationMode.REGULAR)
         neuralNetwork.outputLayer.params().muli(0)
 
         oldParams = neuralNetwork.params().dup()
@@ -79,19 +75,8 @@ class Node(
         return network
     }
 
-    private fun loadFromTransferNetwork(transferFile: File, generateArchitecture: (nnConfiguration: NNConfiguration, seed: Int, mode: NNConfigurationMode) -> MultiLayerConfiguration): MultiLayerNetwork {
-        val transferNetwork = ModelSerializer.restoreMultiLayerNetwork(transferFile)
-        val frozenNetwork = generateNeuralNetwork(generateArchitecture, nodeIndex, NNConfigurationMode.FROZEN)
-        for ((k, v) in transferNetwork.paramTable()) {
-            if (k.split("_")[0].toInt() < transferNetwork.layers.size - 1) {
-                frozenNetwork.setParam(k, v.dup())
-            }
-        }
-        return frozenNetwork
-    }
-
     protected fun getDataSetIterators(
-        inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behavior, transfer: Boolean) -> CustomDatasetIterator,
+        inst: (iteratorConfiguration: DatasetIteratorConfiguration, seed: Long, dataSetType: CustomDatasetType, baseDirectory: File, behavior: Behavior) -> CustomDatasetIterator,
         baseDirectory: File,
     ): List<CustomDatasetIterator> {
         val seed = nodeIndex.toLong() * 10
@@ -104,8 +89,7 @@ class Node(
             seed,
             CustomDatasetType.TRAIN,
             baseDirectory,
-            configuration.trainConfiguration.behavior,
-            false,
+            configuration.trainConfiguration.behavior
         )
         logger.debug { "Loaded trainDataSetIterator" }
         val testDataSetIterator = inst(
@@ -117,8 +101,7 @@ class Node(
             seed + 1,
             CustomDatasetType.TEST,
             baseDirectory,
-            configuration.trainConfiguration.behavior,
-            false,
+            configuration.trainConfiguration.behavior
         )
         logger.debug { "Loaded testDataSetIterator" }
         val fullTestDataSetIterator = inst(
@@ -130,8 +113,7 @@ class Node(
             seed + 2,
             CustomDatasetType.FULL_TEST,
             baseDirectory,
-            Behavior.BENIGN,
-            false,
+            Behavior.BENIGN
         )
         logger.debug { "Loaded fullTestDataSetIterator" }
         return listOf(trainDataSetIterator, testDataSetIterator, fullTestDataSetIterator)

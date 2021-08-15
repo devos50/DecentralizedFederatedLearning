@@ -13,7 +13,6 @@ class CustomMnistDataSetIterator(
     seed: Long,
     dataSetType: CustomDatasetType,
     behavior: Behavior,
-    transfer: Boolean,
 ) : CustomBaseDatasetIterator(
     iteratorConfiguration.batchSize,
     -1,
@@ -22,8 +21,7 @@ class CustomMnistDataSetIterator(
         seed,
         dataSetType,
         if (dataSetType == CustomDatasetType.TRAIN) Integer.MAX_VALUE else iteratorConfiguration.maxTestSamples,
-        behavior,
-        transfer
+        behavior
     )
 ), CustomDatasetIterator {
     override val testBatches by lazy { customFetcher.testBatches }
@@ -42,9 +40,8 @@ class CustomMnistDataSetIterator(
             dataSetType: CustomDatasetType,
             baseDirectory: File,
             behavior: Behavior,
-            transfer: Boolean
         ): CustomMnistDataSetIterator {
-            return CustomMnistDataSetIterator(iteratorConfiguration, seed, dataSetType, behavior, transfer)
+            return CustomMnistDataSetIterator(iteratorConfiguration, seed, dataSetType, behavior)
         }
     }
 }

@@ -37,7 +37,6 @@ class CustomMnistDataFetcher(
     val dataSetType: CustomDatasetType,
     maxTestSamples: Int,
     behavior: Behavior,
-    transfer: Boolean,
 ) : CustomBaseDataFetcher(seed) {
     override val testBatches by lazy { createTestBatches() }
 
@@ -46,28 +45,28 @@ class CustomMnistDataFetcher(
     private var featureData = Array(1) { FloatArray(SIZE_IMAGE) }
 
     init {
-        if (!mnistExists(transfer)) {
-            (if (transfer) EmnistFetcher(EmnistDataSetIterator.Set.LETTERS) else MnistFetcher()).downloadAndUntar()
+        if (!mnistExists()) {
+            MnistFetcher().downloadAndUntar()
         }
-        val mnistRoot = DL4JResources.getDirectory(ResourceType.DATASET, if (transfer) "EMNIST" else "MNIST").absolutePath
+        val mnistRoot = DL4JResources.getDirectory(ResourceType.DATASET, "MNIST").absolutePath
         val images: String
         val labels: String
         val numExamples: Int
         if (dataSetType == CustomDatasetType.TRAIN) {
-            images = FilenameUtils.concat(mnistRoot, if (transfer) FILENAME_EMNIST_TRAIN_IMAGES else MnistFetcher.TRAINING_FILES_FILENAME_UNZIPPED)
-            labels = FilenameUtils.concat(mnistRoot, if (transfer) FILENAME_EMNIST_TRAIN_LABELS else MnistFetcher.TRAINING_FILE_LABELS_FILENAME_UNZIPPED)
-            numExamples = if (transfer) NUM_EMNIST_TRAINING_EXAMPLES else MnistDataFetcher.NUM_EXAMPLES
+            images = FilenameUtils.concat(mnistRoot, MnistFetcher.TRAINING_FILES_FILENAME_UNZIPPED)
+            labels = FilenameUtils.concat(mnistRoot, MnistFetcher.TRAINING_FILE_LABELS_FILENAME_UNZIPPED)
+            numExamples = MnistDataFetcher.NUM_EXAMPLES
         } else {
-            images = FilenameUtils.concat(mnistRoot, if (transfer) FILENAME_EMNIST_TEST_IMAGES else MnistFetcher.TEST_FILES_FILENAME_UNZIPPED)
-            labels = FilenameUtils.concat(mnistRoot, if (transfer) FILENAME_EMNIST_TEST_LABELS else MnistFetcher.TEST_FILE_LABELS_FILENAME_UNZIPPED)
-            numExamples = if (transfer) NUM_EMNIST_TESTING_EXAMPLES else MnistDataFetcher.NUM_EXAMPLES_TEST
+            images = FilenameUtils.concat(mnistRoot, MnistFetcher.TEST_FILES_FILENAME_UNZIPPED)
+            labels = FilenameUtils.concat(mnistRoot, MnistFetcher.TEST_FILE_LABELS_FILENAME_UNZIPPED)
+            numExamples = MnistDataFetcher.NUM_EXAMPLES_TEST
         }
         val createMan = {
             CustomMnistManager(
                 images,
                 labels,
                 numExamples,
-                if (transfer) (0 until NUM_EMNIST_CLASSES).map { NUM_EMNIST_EXAMPLES_PER_CLASS }.toIntArray() else iteratorDistribution,
+                iteratorDistribution,
                 maxTestSamples,
                 seed,
                 if (dataSetType == CustomDatasetType.FULL_TEST) Behavior.BENIGN else behavior
@@ -85,22 +84,22 @@ class CustomMnistDataFetcher(
             man = createMan.invoke()
         }
         totalExamples = man.getNumSamples()
-        numOutcomes = if (transfer) NUM_EMNIST_CLASSES else NUM_MNIST_CLASSES
+        numOutcomes = NUM_MNIST_CLASSES
         cursor = 0
         inputColumns = man.getInputColumns()
         order = IntStream.range(0, totalExamples).toArray()
         reset() //Shuffle order
     }
 
-    private fun mnistExists(transfer: Boolean): Boolean {
-        val mnistRoot = DL4JResources.getDirectory(ResourceType.DATASET, if (transfer) "EMNIST" else "MNIST").absolutePath
-        var f = File(mnistRoot, if (transfer) FILENAME_EMNIST_TRAIN_IMAGES else MnistFetcher.TRAINING_FILES_FILENAME_UNZIPPED)
+    private fun mnistExists(): Boolean {
+        val mnistRoot = DL4JResources.getDirectory(ResourceType.DATASET, "MNIST").absolutePath
+        var f = File(mnistRoot, MnistFetcher.TRAINING_FILES_FILENAME_UNZIPPED)
         if (!f.exists()) return false
-        f = File(mnistRoot, if (transfer) FILENAME_EMNIST_TRAIN_LABELS else MnistFetcher.TRAINING_FILE_LABELS_FILENAME_UNZIPPED)
+        f = File(mnistRoot, MnistFetcher.TRAINING_FILE_LABELS_FILENAME_UNZIPPED)
         if (!f.exists()) return false
-        f = File(mnistRoot, if (transfer) FILENAME_EMNIST_TEST_IMAGES else MnistFetcher.TEST_FILES_FILENAME_UNZIPPED)
+        f = File(mnistRoot, MnistFetcher.TEST_FILES_FILENAME_UNZIPPED)
         if (!f.exists()) return false
-        f = File(mnistRoot, if (transfer) FILENAME_EMNIST_TEST_LABELS else MnistFetcher.TEST_FILE_LABELS_FILENAME_UNZIPPED)
+        f = File(mnistRoot, MnistFetcher.TEST_FILE_LABELS_FILENAME_UNZIPPED)
         return f.exists()
     }
 

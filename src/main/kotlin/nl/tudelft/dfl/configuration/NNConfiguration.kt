@@ -8,7 +8,7 @@ import nl.tudelft.dfl.types.Optimizer
 
 
 enum class NNConfigurationMode {
-    REGULAR, TRANSFER, FROZEN
+    REGULAR, FROZEN
 }
 
 data class NNConfiguration(

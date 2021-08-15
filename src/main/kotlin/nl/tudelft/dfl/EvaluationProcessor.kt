@@ -21,7 +21,6 @@ class EvaluationProcessor(
     private val configurationHeader = arrayOf(
         "name",
         "simulationIndex",
-        "transfer",
         "dataset",
         "optimizer",
         "learning rate",
@@ -94,7 +93,6 @@ class EvaluationProcessor(
     fun writeConfigurations(
         name: String,
         nodes: List<Node>,
-        transfer: Boolean
     ) {
         this.currentName = name
         this.garName = nodes[0].configuration.trainConfiguration.gar.id
@@ -106,7 +104,6 @@ class EvaluationProcessor(
             val line = arrayOf(
                 name,
                 index.toString(),
-                transfer,
                 node.configuration.dataset.id,
 
                 nnConfiguration.optimizer.id,
